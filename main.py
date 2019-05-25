@@ -139,7 +139,7 @@ randomBackground=None #A Flag Used To Stop The Random Generation Of The BackGrou
 randomBird = None      #Same For The Bird
 randomGround = None     #Same For The Ground 
 time =1000
-FPS = 60
+FPS = 80
 Easy = False
 Hard = False
 xMouse = 0
@@ -610,7 +610,7 @@ def TestCollision(alist):
         pipePos.extend([LowerPipe.getPos()[0] - selectedpipe,pipes[pointer]]) 
 
         if (pipePos[0]-.2 < bird.getPos()[0] < pipePos[0]+.2): #The Collision will occur Only If The x Of The Bird Is Between The Collision Surface "The Width Of The Pipe is 0.4"
-            if (bird.getPos()[1] < pipePos[1] - .02  or bird.getPos()[1] > pipePos[1] + .13): #The Collision will Occur If The Y of The Bird is Less or Greater Than The Lower or The Upeer Pipe's Y Respectively 
+            if (bird.getPos()[1] < pipePos[1] - .03 or bird.getPos()[1] > pipePos[1] + .13): #The Collision will Occur If The Y of The Bird is Less or Greater Than The Lower or The Upeer Pipe's Y Respectively 
                 Stop = True     #Stop The Game And Show The ScoreBoard
                 if not SoundPlayed :  # Play The Lose Tone Once
                     pygame.mixer.Sound.play(sound_hit)
