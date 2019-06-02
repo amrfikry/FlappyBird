@@ -4,12 +4,9 @@ from OpenGL.GLUT import *
 import random
 import numpy as np
 import pygame
-from pygame import mixer
-import time
 import sys 
-import os 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-FlabbyObjects = list()  #A List To Store Every Object of The Game At 
+FlabbyObjects = list() 
 
 class GameObject:
     def __init__(self):
@@ -48,7 +45,6 @@ class GameObject:
 class FlappyImages:
     def __init__(self, MyImages):
         self.AppliedImage = 0  #Select only one texture from the list
-        self.imageCount = 0  
         self.imageCount=len(MyImages)  #the number of textures used in the game
 
         self.images = glGenTextures(self.imageCount) #To generate the textures
@@ -82,7 +78,7 @@ class ImageRenderer:
         self.texCoordY1 = 0
         self.texCoordY2 = 0        
     # Draws Sprite every frame. Sprite is determined using 4 Coordinates from the main sprite sheet.
-    def DrawImage(self, TextureCoordX1=0, TextureCoordX2=0, TextureCoordY1=0, TextureCoordY2=0):
+    def DrawImage(self, TextureCoordX1=0, TextureCoordX2=1, TextureCoordY1=0, TextureCoordY2=1):
         curGameObject = self.gameObject
         self.gameObject.ApplyInitailPostion()
         self.texCoordX1 = TextureCoordX1
@@ -114,52 +110,37 @@ class ImageRenderer:
 WINDOW_HEIGHT = 800
 WINDOW_WIDTH = 600
 gameImages = None
-numberImages = None
 global anim , v_velocity , dtime , y
-anim = 0                                            #if anim = 0 wether the user lost or has't started game yet
+anim = 0                                            
 y = 0
-sound_button = None
-sound_die = None
-sound_hit = None
-sound_point = None
-sound_swag=None
-sound_mario=None
-sound_credits = None
-sound_suck = None
-sound_win = None
-sound_damn =None
-sound_sweetie = None
-CountScore=0  #The Score Counter
-SoundPlayed = False #To Play The Lose Tone Only Once
-Tapped = False #Flag used to hide the Tap Texture After The Key Is Pressed
-speedX=0 #Intialing The Pipes Speed
-PipesRandom = True #A Flag Used To Stop The Random Generation Of The Pipes Everytime The Main Is Called
-pipes=list()  #Used To Store The yTranslate Of Each Pipe
-randomBackground=None #A Flag Used To Stop The Random Generation Of The BackGround
-randomBird = None      #Same For The Bird
-randomGround = None     #Same For The Ground 
+sounds = dict.fromkeys(["sound_button", "sound_die", "sound_hit","sound_point","sound_swag","sound_mario","sound_win","sound_damn","sound_sweetie"], None)
+
+CountScore=0  
+SoundPlayed = False 
+Tapped = False 
+speedX=0 
+PipesRandom = True 
+pipes=list()  
+randomBackground=None 
+randomBird = None   
+randomGround = None     
 time =1000
 FPS = 80
 Easy = False
 Hard = False
-xMouse = 0
-yMouse = 0
-pointer =0     #Points at The y's Of The Pipes in pipes List
-selectedpipe=19 #To Get The Real X's for Each Pipe
-increase =False #A Flag Used To Increase The Counter Only Once
-PointerInc=False #A Flag To Increase The Pointer And Decrease The Selected Pipe
+xMouse = yMouse= 0
+pointer =0     
+selectedpipe=19 
+increase =False
+PointerInc=False 
 dtime = .0005
 v_velocity = .005
-SwagCheck = False  #To Check If you deserve the SWAGGGGGG
-BG=False #A Flag to generate the Backgrounds, birds and grounds only once
+SwagCheck = False  
+BG=False 
 Stop = False
 Clicked = False
-SwagSong=False
-MarioSong = False
 CreditsSong = False
-YouSuck = False
-SoundDamn = False
-SoundSweetie = False 
+ScoreSounds = False
 FireballSound = 0
 CreditsSpeed = -1.25
 speedY=0
@@ -167,11 +148,12 @@ Realx = 0.0
 Realy = 0.0
 CreditsEnable = False
 Exit = False
-ballY=[.65,-.65,.5,-.5,.35,-.35,.2,-.2]
-ballmovements = [0,0,0,0,0,0,0,0]
+ballY=[.65,-.65,-.5,-.05,.35,.2,-.5,-.2,.05,-.35,.1,-.1] 
+ballmovements = [0]*(len(ballY)-4 if Easy else len(ballY))
 balls=[]
 PosY=[]
 PassedMario = False
+NOPipes = 20
 #---------------------------------------------------------Making Everything Game Object--------------------------------------------------------------------------------------#
 background = GameObject()
 backgroundRenderer = ImageRenderer(background)
@@ -224,7 +206,7 @@ def init():
 
     glClearColor(1,1,1,1)
 
-    global gameImages, numberImages
+    global gameImages
     global sound_button
     global sound_die
     global sound_hit
@@ -238,7 +220,7 @@ def init():
     global sound_damn
 
 
-    pygame.init() #Applying the Sounds imported in the folder 
+    pygame.init()
     sound_button=pygame.mixer.Sound("sounds//wing.wav")
     sound_point=pygame.mixer.Sound("sounds//point.wav")
     sound_hit=pygame.mixer.Sound("sounds//hit.wav")
@@ -253,13 +235,11 @@ def init():
 
 
     glMatrixMode(GL_MODELVIEW)
-    #Applying Nedded Images For The Game 
     gameImages = FlappyImages(["assests//background.png","assests//Nums n Medals.png"
                             ,"assests//birds.png","assests//credits.png"
                             ,"assests//ground.png","assests//pipes.png"
                             ,"assests//flappy.png","assests//youend.png"
                             ,"assests//modes.png","assests//ball and check.png","assests//Mario.png"])
-#####-----------------------------------------------------------Setting The Intail Transformation For Each Object"-----------------------------------------------------------#######
 
     background.StartingTransformation([0,0,0],[20,20,1])
     glLoadIdentity()
@@ -273,15 +253,12 @@ def init():
 
     
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 def showScore():
-    global CountScore, numberImages,anim,SoundDamn,SoundSweetie,MarioSong,SwagCheck,SwagSong
+    global CountScore,anim,ScoreSounds,SwagCheck
     
-    if anim == 1: #Shows The Score After The Key Is Pressed And The Game Moves
+    if anim == 1:
         PrintScore.StartingTransformation([0,0.4,0],[2,1.5,1])
         glLoadIdentity()
-
-###--------------------------------------------------------------------Score Conditions To Select Which Texture To Show---------------------------------------------------------------------------------------###
 
     gameImages.ApplyImage(2)
     if CountScore == 0:
@@ -296,12 +273,12 @@ def showScore():
         ShowScoreRenderer.DrawImage(0.8, 1, 0.8, 1)
     elif CountScore == 5:
         ShowScoreRenderer.DrawImage(0, 0.2, 0.6, 0.8)
-        if not SoundDamn:
+        if not ScoreSounds:
             pygame.mixer.Sound.play(sound_damn)
-            SoundDamn = True 
-        
+            ScoreSounds = True 
     elif CountScore == 6:
         ShowScoreRenderer.DrawImage(0.2, 0.4, 0.6, 0.8)
+        ScoreSounds = False
     elif CountScore == 7:
         ShowScoreRenderer.DrawImage(0.4, 0.6, 0.6, 0.8)
     elif CountScore == 8:
@@ -310,11 +287,12 @@ def showScore():
         ShowScoreRenderer.DrawImage(0.8, 1, 0.6, 0.8)
     elif CountScore == 10:
         ShowScoreRenderer.DrawImage(0, 0.2, 0.4, 0.6)
-        if not SoundSweetie:
+        if not ScoreSounds:
             pygame.mixer.Sound.play(sound_sweetie)
-            SoundSweetie = True
+            ScoreSounds = True
     elif CountScore == 11:
         ShowScoreRenderer.DrawImage(0.2, 0.4, 0.4, 0.6)
+        ScoreSounds = False
     elif CountScore == 12:
         ShowScoreRenderer.DrawImage(0.4, 0.6, 0.4, 0.6)
     elif CountScore == 13:
@@ -324,44 +302,47 @@ def showScore():
     elif CountScore == 15:
         ShowScoreRenderer.DrawImage(0, 0.2, 0.2, 0.4)
         SwagCheck=True
-        if not SwagSong:
+        if not ScoreSounds:
             pygame.mixer.Sound.play(sound_swag)
-            SwagSong=True 
+            ScoreSounds=True 
     elif CountScore == 16:
         ShowScoreRenderer.DrawImage(0.2, 0.4, 0.2, 0.4)
+        ScoreSounds = False
     elif CountScore == 17:
         ShowScoreRenderer.DrawImage(0.4, 0.6, 0.2, 0.4)
     elif CountScore == 18:
         ShowScoreRenderer.DrawImage(0.6, 0.8, 0.2, 0.4)
     elif CountScore == 19:
         ShowScoreRenderer.DrawImage(0.8, 1, 0.2, 0.4)
-        if not MarioSong :
+        if not ScoreSounds :
              pygame.mixer.Sound.play(sound_mario)
-             MarioSong = True
+             ScoreSounds = True
     elif CountScore == 20:
         ShowScoreRenderer.DrawImage(0, 0.2, 0, 0.2)
 
 
 
+
 def ShowCredits():
-    global CreditsSpeed,CreditsEnable,Exit,sound_credits,CreditsSong   
+    global CreditsSpeed,CreditsEnable,Exit,sound_credits,CreditsSong,sound_suck,sound_win 
     if not CreditsSong:
         pygame.mixer.Sound.play(sound_credits)
         CreditsSong=True
     
 
     if CreditsEnable  :
-        
+        pygame.mixer.Sound.stop(sound_win)
+        pygame.mixer.Sound.stop(sound_suck)
         background.StartingTransformation([0,0,0],[20,20,0])
         glLoadIdentity()
         gameImages.ApplyImage(1)
 
         if randomBackground==1:
-            gameImages.ApplyImage(1) #Draw The Selected Background
+            gameImages.ApplyImage(1) 
             backgroundRenderer.DrawImage(0,.5,0,1)
             glLoadIdentity()
         elif randomBackground==2:
-            gameImages.ApplyImage(1) #Draw The Selected Background
+            gameImages.ApplyImage(1) 
             backgroundRenderer.DrawImage(.5,1,0,1)
             glLoadIdentity()
 
@@ -375,30 +356,29 @@ def ShowCredits():
             sys.exit()
 
 def ScoreEffects():
-    global Tapped , CountScore,YouSuck, Clicked,Exit,sound_suck,SoundDamn,SoundSweetie
+    global Tapped , CountScore,Clicked,Exit,sound_suck,ScoreSounds
 
-    Tapped = True #Used For Not Showing The Tap Texture After Losing 
+    Tapped = True
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-    ShowScoreBoard.StartingTransformation([0,0,0],[18,20,1]) #If Lost Then Show The ScoreBoard 
+
+    ShowScoreBoard.StartingTransformation([0,0,0],[18,20,1]) 
     glLoadIdentity()
 
     gameImages.ApplyImage(8)
     if CountScore == 20:
-        ScoreBoardRenderer.DrawImage(0.5,1,0,1) #Draw The ScoreBoard
+        ScoreBoardRenderer.DrawImage(0.5,1,0,1)
     else:
         ScoreBoardRenderer.DrawImage(0,0.5,0,1)
     glLoadIdentity()
 
     if CountScore == 0 :
-        if not YouSuck:
+        if not ScoreSounds:
             pygame.mixer.Sound.play(sound_suck) 
-            YouSuck = True
+            ScoreSounds = True
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
     Medals.StartingTransformation([-0.37,0,0],[4,3.5,1])
-    glLoadIdentity()
-    #To Select Which Medal The Play Occupy Depending on The Current Score 
+    glLoadIdentity() 
     gameImages.ApplyImage(2)
     if CountScore > 0 and CountScore <= 5:
         MedalsRenderer.DrawImage(0.2,0.4,0,0.2)
@@ -409,28 +389,21 @@ def ScoreEffects():
     if CountScore > 15 and CountScore <= 20:
         MedalsRenderer.DrawImage(0.4,0.6,0,0.2)
     
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
-    PrintScore.StartingTransformation([0.41,0.01,0],[2,1.5,1]) #To Print The Score At The ScoreBoard
+    PrintScore.StartingTransformation([0.41,0.01,0],[2,1.5,1])
     glLoadIdentity()
 
     
-    showScore() #Function Used to Show The Score 
+    showScore()
     
     if Exit :
         sys.exit()
 
-#------------------------------------------------------A Function Used To Draw And Move The Pipes With A Specified Speed---------------------------------------------------------#
 def drawPipes(xTranslate = 0, yTranslate = 0):
-    #yTranslate is Used For Setting The Height OF The Pipes Randomly 
     global speedX , anim
-    if anim == 0 : #While Key Is Not Pressed , No Animation And Set The Speed To Zero 
+    if anim == 0 : 
         speedX = 0
-        LowerPipe.StartingTransformation([1.2, -.4, 0], [7, 14, 1])
-        glLoadIdentity()
-        UpperPipe.StartingTransformation([1.2 , .5, 0], [7, 14, 1])
-        glLoadIdentity()
-    if anim == 1 :#If Key Is Pressed ,Start Applying The Speed To The X's Of The Pipes 
-        LowerPipe.StartingTransformation([(1.2+ xTranslate) -speedX, -0.4 + yTranslate, 0],[7,14,1])
+    if anim == 1 : 
+        LowerPipe.StartingTransformation([(1.2+ xTranslate) -speedX, -0.37 + yTranslate, 0],[7,14,1])
         glLoadIdentity()
 
         UpperPipe.StartingTransformation([(1.2+ xTranslate) -speedX, 0.5 + yTranslate, 0],[7,14,1])
@@ -446,23 +419,25 @@ def drawPipes(xTranslate = 0, yTranslate = 0):
     UpperPipeRenderer.DrawImage(.5,1,0,1)
     glPopMatrix()
 
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 
-def PipesRender():
+
+
+def ObjectRenderer():
     global PipesRandom
     global pipes
     global randomBackground
     global Easy
+    global NOPipes
     if randomBackground==1:
-        gameImages.ApplyImage(1) #Draw The Selected Background
+        gameImages.ApplyImage(1) 
         backgroundRenderer.DrawImage(0,.5,0,1)
         glLoadIdentity()
     elif randomBackground==2:
-        gameImages.ApplyImage(1) #Draw The Selected Background
+        gameImages.ApplyImage(1) 
         backgroundRenderer.DrawImage(.5,1,0,1)
         glLoadIdentity()
 
-    DrawName() #Draw The FlappyBird Logo
+    DrawName()
     glLoadIdentity()
 
     supermario()
@@ -471,25 +446,25 @@ def PipesRender():
     fireBalls()
     glLoadIdentity()
 
-    for i in range(0,20,1): #A For Loop To Draw Twenty Pipes
+    for i in range(0,NOPipes,1):
         glLoadIdentity()
         if Easy:
-            drawPipes(i,pipes[i]) #To Draw The Pipes With A Specific xTranslation Between Each Two Pipes "1 Unit" And a Random yTranslation From The "pipes" List 
+            drawPipes(i,pipes[i]) 
         if not Easy:
             drawPipes(i*.8,pipes[i])
     if randomGround==4:
-        gameImages.ApplyImage(5) #Draw The Random Ground
+        gameImages.ApplyImage(5) 
         groundSprite.DrawImage(0,.5,0,1)
         glLoadIdentity()
     elif randomGround==5:
-        gameImages.ApplyImage(5) #Draw The Random Ground
+        gameImages.ApplyImage(5) 
         groundSprite.DrawImage(.5,1,0,1)
         glLoadIdentity() 
-#------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
+
 
 def DrawName(): #Draw "FLAPPY BIRD" 
     global speedX,Stop
-    if not Stop: #Do not Drawing the "FLAPPY BIRD" logo again after losing
+    if not Stop: 
         flappy.StartingTransformation([0 - speedX,0.3,0],[16,10,1])
         glLoadIdentity()
 
@@ -502,12 +477,13 @@ def makeRandom():
     global randomGround
     global BG
     global PipesRandom
+    global NOPipes
     if PipesRandom: #To Generate The Height Only Once
-        for i in range (0,20,1): #to Only Generate The RAndom yTranslate
+        for i in range (0,NOPipes,1):
             x = [-0.18,-0.16,-0.14,-0.12,-0.1,-0.08,-0.06,-0.04,-0.02,0,0.02,0.04,0.06,0.08,0.1,0.12,0.14,0.16,0.18,0.2] #A List To Choose The yTranslate From
-            randomY = random.choice(x) #Get A Random Number From The List
-            pipes.append(randomY)  #Appending The Random Height
-        PipesRandom=False #Stop The Random Generation
+            randomY = random.choice(x) 
+            pipes.append(randomY)  
+        PipesRandom=False 
     if not BG:
         randomBackground=random.randrange(1,3,1)
         randomBird = random.randrange(3,6,1)
@@ -532,7 +508,7 @@ def birdMovement():
     if y <=-.35 :
         Stop = True
         anim = 0
-        if not SoundPlayed :  # Play The Lose Tone Once
+        if not SoundPlayed :  
             pygame.mixer.Sound.play(sound_hit)
             pygame.mixer.Sound.play(sound_die)
             SoundPlayed = True
@@ -572,7 +548,7 @@ def keyboard(key,x,y):
             if not Stop :
                 anim = 1
                 v_velocity = .0092
-                pygame.mixer.Sound.play(sound_button)  #Play The "wing" tone after each press
+                pygame.mixer.Sound.play(sound_button)
 
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
@@ -589,41 +565,37 @@ def TestCollision(alist):
     global PointerInc
     global Easy
     global ballmovements
-    global ballY ,speedX
+    global ballY ,speedX,NOPipes
 
-    PosX = []
-    balls = []
+    PosX =list()
+    balls = list()
 
-    for i in range (0,8,1):
-        balls.append(pipes[19]-.03 + ((ballmovements[i]*ballY[i])))
+    for i in range (len(ballY)-4 if Easy else len(ballY)):
+        balls.append(pipes[NOPipes - 1]-.03 + ((ballmovements[i]*ballY[i])))
         PosX.append(((20.09 if Easy else 16.3) - speedX)-ballmovements[i])
 
 #--------------------------------------------------------------------------Collision Algorithm-----------------------------------------------------------------------------------------#
-    #LowerPipe.getPos() Method Gives Us Only The Last Position Of The Last Pipe 
-    #But We Have The yTranslate Saved Into "pipes" List
-    #So To Get The x Position Of The "i"th Pipe We Subtract The x of The LowerPipe.getPos() from "selectedpipe"
-    #And To Get The y Position Of The "i"th Pipe We Load It From "pipe" List with A Pointer "pointer" Moves Through That List
-    #Now We Have x and y Of Every Pipe 
 
-    pipePos = [] #Clearing The Pipes and Bird Positions Everytime they Change
-    if pointer != 20: #To Check If The Player Passed All The Pipes
+
+    pipePos = [] 
+    if pointer != NOPipes: 
         pipePos.extend([LowerPipe.getPos()[0] - selectedpipe,pipes[pointer]]) 
 
         if (pipePos[0]-.2 < bird.getPos()[0] < pipePos[0]+.2): #The Collision will occur Only If The x Of The Bird Is Between The Collision Surface "The Width Of The Pipe is 0.4"
             if (bird.getPos()[1] < pipePos[1] - .03 or bird.getPos()[1] > pipePos[1] + .13): #The Collision will Occur If The Y of The Bird is Less or Greater Than The Lower or The Upeer Pipe's Y Respectively 
-                Stop = True     #Stop The Game And Show The ScoreBoard
-                if not SoundPlayed :  # Play The Lose Tone Once
+                Stop = True 
+                if not SoundPlayed : 
                     pygame.mixer.Sound.play(sound_hit)
                     pygame.mixer.Sound.play(sound_die)
                     SoundPlayed = True
-        if CountScore <= pointer: #If Condition To Increase The Counter Only Once Not Everytime The Bird Point is between The Collison Surface But Not Crashed
-            if (pipePos[0] < bird.getPos()[0] < pipePos[0] + .2) and ((pipePos[1] - .025 < bird.getPos()[1] < pipePos[1] + .125)): #The Score Is Increased If the Bird Position is Greater Than The Half Of Pipes
-                increase = True #Increase The Score 
+        if CountScore <= pointer: 
+            if (pipePos[0] < bird.getPos()[0] < pipePos[0] + .2) and ((pipePos[1] - .025 < bird.getPos()[1] < pipePos[1] + .125)): 
+                increase = True 
             
-        if pipePos[0]+.25<bird.getPos()[0] <pipePos[0]+.3: #To Increase The Pointer After Leaving The Pipe to Select The Next Pipe 
-            PointerInc=True #Increase pointer and Decrease selectedpipe
+        if pipePos[0]+.25<bird.getPos()[0] <pipePos[0]+.3: 
+            PointerInc=True
 
-    if pointer == 19 :  
+    if pointer == NOPipes - 1 :  
         for i in range(len(balls)):
             if (bird.getPos()[0]-.1<PosX[i]<bird.getPos()[0]+.1):
                 if bird.getPos()[1]-.03<balls[i]<bird.getPos()[1]+.03:
@@ -636,8 +608,8 @@ def TestCollision(alist):
             PassedMario = True
     
     if increase:
-        CountScore += 1 #Increase The Score Only Once
-        pygame.mixer.Sound.play(sound_point) #The "Point" Tone      
+        CountScore += 1
+        pygame.mixer.Sound.play(sound_point)     
         increase = False 
 
     if speedX >= 21.5:
@@ -646,17 +618,17 @@ def TestCollision(alist):
             pygame.mixer.Sound.play(sound_win)
             SoundPlayed = True
 
-    if PointerInc : #Increasing The pointer To point to the Next yTranslate at "pipes" and Decresing selectedpipe to get the Next pipe x Position
+    if PointerInc :  
         pointer+=1
         if Easy:
             selectedpipe-=1
         else :
             selectedpipe-=.8
-        PointerInc =False #ONLY ONCEEEE
+        PointerInc =False
 def supermario():
     global speedX
     global pipes, PassedMario,speedY
-    SuperMario.StartingTransformation([(20.2 if Easy else 16.4)- speedX, pipes[19]-(speedY if PassedMario else 0), 0], [2.5, 2.7,1])
+    SuperMario.StartingTransformation([(20.2 if Easy else 16.4)- speedX, pipes[NOPipes - 1]-(speedY if PassedMario else 0), 0], [2.5, 2.7,1])
     glLoadIdentity()
     gameImages.ApplyImage(11)
     SuperMarioRender.DrawImage(0,1,0,1)
@@ -669,15 +641,10 @@ def fireBalls():
     if anim == 1 and PassedMario == False:
         gameImages.ApplyImage(10)
 
-        for i in range (0,8,1):
-            ball.StartingTransformation([(((20.09 if Easy else 16.3) - speedX)-ballmovements[i]), pipes[19]-.03 + ((ballmovements[i]*ballY[i])), 0], [1.5,1.5,1])
+        for i in range (len(ballY)-4 if Easy else len(ballY)):
+            ball.StartingTransformation([(((20.09 if Easy else 16.3) - speedX)-ballmovements[i]), pipes[NOPipes - 1]-.03 + ((ballmovements[i]*ballY[i])), 0], [1.5,1.5,1])
             glLoadIdentity()
             showBall.DrawImage(0,.5,0,1) 
-
-
-
-
-
 
 def main():
 #---------------------------------------------------##### The Objects' Order #####---------------------------------------------------------------------------------------------#
@@ -695,23 +662,22 @@ def main():
     global Tapped, Easy ,Hard, Clicked ,selectedpipe,CreditsEnable,PassedMario,pointer
     global xMouse,yMouse,Realx,Realy
     glClearColor(1, 1, 1, 1)
-    glClear(GL_COLOR_BUFFER_BIT) #Clearing The Color Buffer Bit
+    glClear(GL_COLOR_BUFFER_BIT)
 
-    makeRandom() #To Random The Objects
+    makeRandom() 
     glLoadIdentity()
 
 
-    PipesRender() #Draw The Pipes
+    ObjectRenderer() 
     glLoadIdentity()
  
 
-    birdMovement() #Drawing And Moving The Bird
+    birdMovement() 
 
     Realy = (((glutGet(GLUT_WINDOW_HEIGHT) / 2) - yMouse) *2/ (glutGet(GLUT_WINDOW_HEIGHT) / 2)) / 2
     Realx = ((xMouse - (glutGet(GLUT_WINDOW_WIDTH) / 2 )) * 2 / (glutGet(GLUT_WINDOW_WIDTH) / 2)) / 2
 
-
-    if anim == 0: #If No Key is Pressed Then Show Tap To Start Texture
+    if anim == 0: 
         if not Tapped:
             gameImages.ApplyImage(7)
             TapRenderer.DrawImage(0,0.5,0,1)
@@ -750,13 +716,13 @@ def main():
             glLoadIdentity()
 
 
-    showScore() #Show The Score Of The Player On The Top Of The Screen
+    showScore() 
     glLoadIdentity() 
 
     if CreditsEnable:
         ShowCredits()
         glLoadIdentity()
-    TestCollision(pipes) #Test The Collision At Each Frame 
+    TestCollision(pipes)
     glutSwapBuffers()
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 def MouseMotion(button,state,x,y):
@@ -787,11 +753,11 @@ def MouseLocation (x,y):
 
 #------------------------------------------------------------------------------------------------------------------------------------------------------------------------------#
 def Timer(v):
-    global speedX,speedY,Stop ,ballmovements,pointer,CreditsSpeed,Clicked,PassedMario,sound_suck,FireballSound
+    global speedX,speedY,Stop,NOPipes ,ballmovements,pointer,CreditsSpeed,Clicked,PassedMario,sound_suck,FireballSound
     if not Stop:
-        if pointer ==19 and not PassedMario:
+        if pointer ==NOPipes -1 and not PassedMario:
             ballmovements[0] += .01
-            for i in range (0,7,1):
+            for i in range (len(ballY)-5 if Easy else len(ballY)-1):
                 
                 if ballmovements[i] > .4 :
                     ballmovements[i+1] +=.01
@@ -806,7 +772,7 @@ def Timer(v):
 
     if Stop and CreditsEnable and Clicked:
         if CreditsSpeed <= 1.25:
-            CreditsSpeed += 0.001
+            CreditsSpeed += 0.0012
 
 
     main()
